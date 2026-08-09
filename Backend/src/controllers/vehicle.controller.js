@@ -9,12 +9,15 @@ async function createVehicle(req,res) {
 
     res.status(201).json({
         message:"Vehicle Created Successfully",
-        vehicleId:vehicle.vehicleId,
-        capacity:vehicle.capacity,
-        fuelRate:vehicle.fuelRate,
-        driverName:vehicle.driverName,
-        maxDistance:vehicle.maxDistance,
-        depotLocation:vehicle.depotLocation
+        vehicle:{
+            _id:vehicle._id,
+            vehicleId:vehicle.vehicleId,
+            capacity:vehicle.capacity,
+            fuelRate:vehicle.fuelRate,
+            driverName:vehicle.driverName,
+            maxDistance:vehicle.maxDistance,
+            depotLocation:vehicle.depotLocation
+        }
     })
 }
 

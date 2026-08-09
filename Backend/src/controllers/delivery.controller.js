@@ -4,7 +4,15 @@ async function createdelivery(req,res){
     const {customerName, location, longitude, latitude , demand,  timeWindow, vehicleId,status}=req.body;
 
     const delivery=await deliveryModel.create({
-        customerName, location, longitude, latitude , demand,  timeWindow, vehicleId,status
+        customerName,
+        location,
+        longitude,
+        latitude,
+        demand,
+        timeWindow,
+        vehicleId,
+        status: status || 'Queued',
+        createdAt: new Date(),
     })
 
     res.status(201).json({
