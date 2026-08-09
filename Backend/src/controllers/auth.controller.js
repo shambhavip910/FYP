@@ -20,7 +20,10 @@ async function registeruser(req,res) {
     }) 
     const token= jwt.sign({id:user._id,role:user.role},process.env.JWT_SECRET)
 
-    res.cookie("token",token);
+    res.cookie("token",token,{
+        httpOnly:true,
+        sameSite:"lax",
+    });
     res.status(201).json({
         message:"user registered successfully",
         user:{
@@ -33,7 +36,7 @@ async function registeruser(req,res) {
 };
 
 async function loginuser(req, res) {
-  const { email, password, role = "manager" } = req.body;
+  const { email, password, role } = req.body;
   const user = await userModel.findOne({ email });
 
   if (!user) {
@@ -44,8 +47,18 @@ async function loginuser(req, res) {
     return res.status(401).json({ message: "Invalid email or password" });
   }
 
+  if (role && user.role !== role) {
+    return res.status(403).json({
+      message: `This account is registered as ${user.role}. Please login as ${user.role}.`,
+      role: user.role,
+    });
+  }
+
   const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET);
-  res.cookie("token", token);
+  res.cookie("token", token, {
+    httpOnly: true,
+    sameSite: "lax",
+  });
   res.status(200).json({
     fullname: user.fullname,
     email: user.email,

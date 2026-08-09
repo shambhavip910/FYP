@@ -1,12 +1,15 @@
-const express=require('express');
+const express = require('express')
+const resultsController = require('../controllers/results.controller')
+const { authenticate, authorize } = require('../middleware/auth.middleware')
 
-const resultsController=require('../controllers/results.controller')
-const router=express.Router();
+const router = express.Router()
 
-router.get('/',resultsController.getResults)
-router.get('/stats',resultsController.getStats)
-router.get('/export',resultsController.exportCSV)
-router.get('/:id',resultsController.getResultById)
-router.delete('/:id',resultsController.deleteResult)
+router.use(authenticate)
 
-module.exports=router;
+router.get('/', authorize('admin', 'manager', 'driver'), resultsController.getResults)
+router.get('/stats', authorize('admin', 'manager', 'driver'), resultsController.getStats)
+router.get('/export', authorize('admin', 'manager'), resultsController.exportCSV)
+router.get('/:id', authorize('admin', 'manager', 'driver'), resultsController.getResultById)
+router.delete('/:id', authorize('admin', 'manager'), resultsController.deleteResult)
+
+module.exports = router

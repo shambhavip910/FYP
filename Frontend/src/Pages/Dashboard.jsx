@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import logo from "../images/logo.png";
 import Sidebar from "./Sidebar";
 import api from "../api";
+import { canEditOperations, getRole } from "../auth";
 
 const COLORS = ["#185FA5", "#639922", "#993C1D", "#7C3AED", "#0F766E"];
 
@@ -144,6 +145,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const canEdit = canEditOperations(getRole());
 
   const loadLatest = useCallback(async () => {
     setLoading(true);
@@ -194,7 +196,7 @@ export default function Dashboard() {
 
   async function handleSelect(index) {
     setSelectedIndex(index);
-    if (!run?._id) return;
+    if (!canEdit || !run?._id) return;
     setSaving(true);
     try {
       const res = await api.put(`/api/optimize/${run._id}/select`, { selectedIndex: index });
@@ -230,21 +232,25 @@ export default function Dashboard() {
             <span className="text-xs px-2 py-1 rounded-md bg-[#1a9e75]/10 text-[#1a9e75] font-medium">
               {run ? `NSGA-II · Run #${String(run.runId).padStart(3, "0")}` : "Awaiting run"}
             </span>
-            <Link
-              to="/deliveries"
-              className="text-xs px-3 py-1.5 rounded-lg border border-[#1e3a5f] text-[#1e3a5f] hover:bg-[#1e3a5f]/5"
-            >
-              Manage deliveries
-            </Link>
+            {canEdit && (
+              <Link
+                to="/deliveries"
+                className="text-xs px-3 py-1.5 rounded-lg border border-[#1e3a5f] text-[#1e3a5f] hover:bg-[#1e3a5f]/5"
+              >
+                Manage deliveries
+              </Link>
+            )}
           </div>
         </div>
 
         {error && (
           <div className="mb-4 px-4 py-3 rounded-lg text-sm bg-amber-50 text-amber-800 border border-amber-100">
             {error}{" "}
-            <Link to="/deliveries" className="underline font-medium">
-              Go to Deliveries
-            </Link>
+            {canEdit && (
+              <Link to="/deliveries" className="underline font-medium">
+                Go to Deliveries
+              </Link>
+            )}
           </div>
         )}
 
