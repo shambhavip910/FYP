@@ -2,21 +2,35 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import logo from '../images/logo.png'
 import api from '../api'
+import { homeForRole, setStoredUser } from '../auth'
 
 const Signup = () => {
   const [fullname, setFullname] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [role, setRole] = useState('manager')
+  const [error, setError] = useState('')
   const navigate = useNavigate()
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
     try {
       const res = await api.post("/api/auth/register", { fullname, email, password, role });
-      navigate('/login');
+      const user = res.data.user;
+      setStoredUser({
+        fullname: user.fullname,
+        email: user.email,
+        role: user.role,
+      });
+      navigate(homeForRole(user.role));
     } catch (err) {
-      console.error(err);
+      const status = err.response?.status;
+      if (status === 409) {
+        setError('An account with this email already exists.');
+      } else {
+        setError('Something went wrong. Please try again.');
+      }
     }
   }
 
@@ -79,6 +93,12 @@ const Signup = () => {
             </select>
           </div>
 
+          {error && (
+            <div className="text-sm text-red-500 bg-red-50 border border-red-200 rounded-lg px-4 py-2">
+              {error}
+            </div>
+          )}
+
           <button
             type="submit"
             className="w-full py-3 bg-[#1e3a5f] rounded-lg text-sm font-bold text-white hover:bg-[#162d4a] transition mt-1 flex items-center justify-center gap-2"
@@ -96,7 +116,7 @@ const Signup = () => {
         <p className="text-sm text-center text-gray-600">
           Already have an account?{' '}
           <span
-            onClick={() => navigate('/dashboard')}
+            onClick={() => navigate('/login')}
             className="text-[#1a9e75] font-semibold cursor-pointer hover:underline"
           >
             Sign in
