@@ -1,6 +1,6 @@
 # constraints.py
 
-from utils import calculate_distance
+from utils import calculate_distance, simulate_route_schedule
 
 
 def check_capacity(route, deliveries, vehicle):
@@ -30,8 +30,15 @@ def check_max_distance(route, deliveries, depot, vehicle):
     return distance <= vehicle.max_distance
 
 
-def check_time_window(route, deliveries):
+def check_time_window(route, deliveries, depot):
+    """
+    Returns True only if every delivery on this route is reached within
+    its time window (no lateness), based on a real leg-by-leg schedule
+    simulation starting from the depot.
+    """
 
-    # Abhi placeholder
-    return True
+    schedule = simulate_route_schedule(route, deliveries, depot)
+
+    return schedule["late_count"] == 0
+
 

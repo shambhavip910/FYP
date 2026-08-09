@@ -1,25 +1,20 @@
-from utils import calculate_distance
+from utils import calculate_distance, simulate_route_schedule
 from constraints import (
     check_capacity,
-    check_max_distance,
-    check_time_window
+    check_max_distance
 )
 
 from config import (
     FUEL_COST_PER_KM,
-    AVERAGE_SPEED,
     CAPACITY_PENALTY,
     DISTANCE_PENALTY,
     TIME_WINDOW_PENALTY
 )
 
-def calculate_fuel(distance):
+def calculate_fuel(distance, fuel_rate=None):
 
-    return distance * FUEL_COST_PER_KM
-
-def calculate_time(distance):
-
-    return distance / AVERAGE_SPEED
+    rate = fuel_rate if fuel_rate is not None else FUEL_COST_PER_KM
+    return distance * rate
 
 def calculate_workload(routes):
 
@@ -56,9 +51,23 @@ def evaluate(individual,
 
         total_distance += route_distance
 
-        total_time += calculate_time(route_distance)
+        total_fuel += calculate_fuel(route_distance, vehicle.fuel_rate)
 
-        total_fuel += calculate_fuel(route_distance)
+        # Real elapsed time: driving + any waiting for a window to open +
+        # any lateness past a window's close. This is what makes
+        # delivery_time a genuine second objective instead of a fixed
+        # multiple of fuel_cost/distance.
+        schedule = simulate_route_schedule(
+            route,
+            deliveries,
+            depot
+        )
+
+        total_time += (
+            schedule["driving_time"]
+            + schedule["waiting_time"]
+            + schedule["lateness"]
+        )
 
         # Capacity
         if not check_capacity(
@@ -80,10 +89,7 @@ def evaluate(individual,
             penalty += DISTANCE_PENALTY
 
         # Time Window
-        if not check_time_window(
-            route,
-            deliveries
-        ):
+        if schedule["late_count"] > 0:
 
             penalty += TIME_WINDOW_PENALTY
 

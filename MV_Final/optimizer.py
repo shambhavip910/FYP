@@ -1,3 +1,4 @@
+import copy
 import random
 
 from deap import base, creator, tools
@@ -13,7 +14,9 @@ from routing import (
 
 from config import (
     POPULATION_SIZE,
-    GENERATIONS
+    GENERATIONS,
+    CROSSOVER_RATE,
+    MUTATION_RATE
 )
 
 # -------------------------
@@ -96,10 +99,15 @@ def run_nsga2(deliveries, vehicles, depot):
             parent1 = random.choice(population)
             parent2 = random.choice(population)
 
-            child = toolbox.mate(parent1, parent2)
-            child = toolbox.mutate(child)
-            child = repair_solution(child, deliveries)
+            if random.random() < CROSSOVER_RATE:
+                child = toolbox.mate(parent1, parent2)
+            else:
+                child = copy.deepcopy(parent1)
 
+            if random.random() < MUTATION_RATE:
+                child = toolbox.mutate(child)
+
+            child = repair_solution(child, deliveries)
             offspring.append(child)
 
         # Evaluate offspring

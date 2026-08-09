@@ -1,0 +1,51 @@
+{
+  "depot": {
+    "lat": 25.4358,
+    "lng": 81.8463
+  },
+  "deliveries": [
+    {
+      "id": 1,
+      "lat": 25.45,
+      "lng": 81.85,
+      "demand": 3,
+      "time_window": "10:00-14:00"
+    },
+    {
+      "id": 2,
+      "lat": 25.42,
+      "lng": 81.82,
+      "demand": 5,
+      "time_window": "11:00-15:00"
+    },
+    {
+      "id": 3,
+      "lat": 25.48,
+      "lng": 81.84,
+      "demand": 2,
+      "time_window": "10:30-13:00"
+    },
+    {
+      "id": 4,
+      "lat": 25.46,
+      "lng": 81.81,
+      "demand": 4,
+      "time_window": "09:00-12:00"
+    },
+  {
+    "id": 5,
+    "lat": 25.43,
+    "lng": 81.86,
+    "demand": 1,
+    "time_window": "11:00-16:00"
+  }
+  ],
+  "vehicles": [
+    {
+      "id": "V001",
+      "capacity": 26,
+      "fuel_rate": 8,
+      "max_distance": 80
+    }
+  ]
+}
