@@ -1,11 +1,14 @@
-const express=require('express')
-const vehicleController=require('../controllers/vehicle.controller')
+const express = require('express')
+const vehicleController = require('../controllers/vehicle.controller')
+const { authenticate, authorize } = require('../middleware/auth.middleware')
 
-const router=express.Router();
+const router = express.Router()
 
-router.get("/",vehicleController.getVehicle)
-router.post("/create",vehicleController.createVehicle)
-router.put("/:id",vehicleController.updateVehicle)
-router.delete("/:id",vehicleController.deleteVehicle)
+router.use(authenticate)
 
-module.exports=router;
+router.get('/', authorize('admin', 'manager', 'driver'), vehicleController.getVehicle)
+router.post('/create', authorize('admin', 'manager'), vehicleController.createVehicle)
+router.put('/:id', authorize('admin', 'manager'), vehicleController.updateVehicle)
+router.delete('/:id', authorize('admin', 'manager'), vehicleController.deleteVehicle)
+
+module.exports = router
