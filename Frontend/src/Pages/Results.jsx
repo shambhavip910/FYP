@@ -18,8 +18,8 @@ export default function ResultsHistory() {
         api.get("/api/result"),
         api.get("/api/result/stats"),
       ]);
-      setResults(resResults.data.result);
-      setStats(resStats.data.stats[0]);
+      setResults(resResults.data.result || []);
+      setStats(resStats.data.stats?.[0] || null);
     } catch (err) {
       console.error("Fetch failed:", err);
     } finally {
@@ -89,20 +89,20 @@ export default function ResultsHistory() {
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           {[
-            { label: "Total runs", value: stats?.totalRuns, sub: "this month" },
+            { label: "Total runs", value: stats?.totalRuns ?? 0, sub: "all time" },
             {
               label: "Avg fuel saved",
-              value: `${stats?.avgFuelSaved}%`,
+              value: `${Math.round(stats?.avgFuelSaved || 0)}%`,
               sub: "vs baseline",
             },
             {
               label: "Avg time saved",
-              value: `${stats?.avgTimeSaved} min`,
+              value: `${Math.round(stats?.avgTimeSaved || 0)} min`,
               sub: "per run",
             },
             {
               label: "Total ₹ saved",
-              value: `₹${stats?.totalMoneySaved}`,
+              value: `₹${Math.round(stats?.totalMoneySaved || 0)}`,
               sub: "cumulative",
             },
           ].map((s, i) => (
@@ -139,6 +139,13 @@ export default function ResultsHistory() {
               </tr>
             </thead>
             <tbody>
+              {results.length === 0 && (
+                <tr>
+                  <td colSpan={9} className="py-6 text-center text-gray-400">
+                    No runs yet. Optimize from the Deliveries page.
+                  </td>
+                </tr>
+              )}
               {results.map((run) => (
                 <tr
                   key={run._id}

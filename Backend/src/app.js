@@ -6,6 +6,7 @@ const deliveryRoutes=require('./routes/delivery.routes')
 const vehicleRoutes=require('./routes/vehicle.routes')
 const resultRoutes=require('./routes/results.routes')
 const adminRoutes=require('./routes/admin.routes')
+const optimizeRoutes=require('./routes/optimize.routes')
 const cors = require('cors');
 
 
@@ -18,5 +19,6 @@ app.use('/api/delivery',deliveryRoutes)
 app.use('/api/vehicle',vehicleRoutes)
 app.use('/api/result',resultRoutes)
 app.use('/api/admin',adminRoutes)
+app.use('/api/optimize',optimizeRoutes)
 
 module.exports=app;
