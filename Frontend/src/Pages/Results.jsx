@@ -2,11 +2,13 @@ import { useState, useEffect } from "react";
 import logo from "../images/logo.png";
 import Sidebar from "./Sidebar";
 import api from "../api";
+import { canEditOperations, getRole } from "../auth";
 
 export default function ResultsHistory() {
   const [results, setResults] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const canEdit = canEditOperations(getRole());
 
   useEffect(() => {
     fetchData();
@@ -78,12 +80,14 @@ export default function ResultsHistory() {
               Results & History
             </span>
           </div>
-          <button
-            onClick={handleExportCSV}
-            className="bg-[#1e3a5f] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-[#162d4a] transition"
-          >
-            Export CSV
-          </button>
+          {canEdit && (
+            <button
+              onClick={handleExportCSV}
+              className="bg-[#1e3a5f] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-[#162d4a] transition"
+            >
+              Export CSV
+            </button>
+          )}
         </div>
 
         {/* Stats */}
@@ -168,12 +172,16 @@ export default function ResultsHistory() {
                     </span>
                   </td>
                   <td className="py-3">
-                    <button
-                      onClick={() => handleDelete(run._id)}
-                      className="text-xs px-3 py-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition font-medium"
-                    >
-                      Delete
-                    </button>
+                    {canEdit ? (
+                      <button
+                        onClick={() => handleDelete(run._id)}
+                        className="text-xs px-3 py-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition font-medium"
+                      >
+                        Delete
+                      </button>
+                    ) : (
+                      <span className="text-xs text-gray-400">View only</span>
+                    )}
                   </td>
                 </tr>
               ))}

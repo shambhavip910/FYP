@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import logo from '../images/logo.png'
 import api from '../api'
+import { homeForRole, setStoredUser } from '../auth'
 
 const Login = () => {
   const [role, setRole] = useState('manager')
@@ -15,11 +16,18 @@ const Login = () => {
     setError('');
     try {
       const res = await api.post("/api/auth/login", { email, password, role });
-      navigate('/dashboard');
+      setStoredUser({
+        fullname: res.data.fullname,
+        email: res.data.email,
+        role: res.data.role,
+      });
+      navigate(homeForRole(res.data.role));
     } catch (err) {
       const status = err.response?.status;
       if (status === 401) {
         setError('Invalid email or password.');
+      } else if (status === 403) {
+        setError(err.response?.data?.message || 'Role does not match this account.');
       } else {
         setError('Something went wrong. Please try again.');
       }
