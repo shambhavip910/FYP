@@ -83,7 +83,7 @@ function RouteMap({ depot, deliveries, routes, vehicles }) {
   );
 }
 
-function ParetoChart({ solutions, selectedIndex }) {
+function ParetoChart({ solutions, selectedIndex, bestIndex }) {
   if (!solutions?.length) {
     return <div className="h-[120px] flex items-center justify-center text-xs text-gray-400">No Pareto data</div>;
   }
@@ -113,16 +113,22 @@ function ParetoChart({ solutions, selectedIndex }) {
       <text x="2" y="12" fontSize="9" fill="#888">Fuel</text>
       <text x="220" y="114" fontSize="9" fill="#888">Time →</text>
       <polyline points={polylineStr} fill="none" stroke="#185FA5" strokeWidth="1.5" strokeDasharray="3,2" />
-      {points.map((p) => (
-        <circle
-          key={p.i}
-          cx={p.x}
-          cy={p.y}
-          r={p.i === selectedIndex ? 6 : 4}
-          fill={p.i === selectedIndex ? "#185FA5" : "#993C1D"}
-          opacity={p.i === selectedIndex ? 1 : 0.7}
-        />
-      ))}
+      {points.map((p) => {
+        const isBest = p.i === bestIndex;
+        const isSelected = p.i === selectedIndex;
+        return (
+          <circle
+            key={p.i}
+            cx={p.x}
+            cy={p.y}
+            r={isBest || isSelected ? 6 : 4}
+            fill={isBest ? "#1a9e75" : isSelected ? "#185FA5" : "#993C1D"}
+            opacity={isBest || isSelected ? 1 : 0.7}
+            stroke={isBest ? "#0f6b4f" : "none"}
+            strokeWidth={isBest ? 1.5 : 0}
+          />
+        );
+      })}
     </svg>
   );
 }
@@ -137,6 +143,44 @@ function workloadBars(solution, vehicles) {
     stops: r.length,
     color: COLORS[i % COLORS.length],
   }));
+}
+
+/** Same balanced score as Backend pickBalancedIndex — lowest normalized sum wins. */
+function pickBestSolutionIndex(solutions) {
+  if (!solutions?.length) return 0;
+  const norms = solutions.map((s) => {
+    const f = s.fitness || {};
+    return {
+      fuel: Number(f.fuel_cost) || 0,
+      time: Number(f.delivery_time) || 0,
+      work: Number(f.workload_balance) || 0,
+    };
+  });
+  const maxFuel = Math.max(...norms.map((n) => n.fuel), 1);
+  const maxTime = Math.max(...norms.map((n) => n.time), 1);
+  const maxWork = Math.max(...norms.map((n) => n.work), 1);
+
+  let bestIdx = 0;
+  let bestScore = Infinity;
+  norms.forEach((n, i) => {
+    const score = n.fuel / maxFuel + n.time / maxTime + n.work / maxWork;
+    if (score < bestScore) {
+      bestScore = score;
+      bestIdx = i;
+    }
+  });
+  return bestIdx;
+}
+
+function formatRoutePreview(routes, vehicles) {
+  if (!routes?.length) return [];
+  return routes
+    .map((r, i) => ({
+      vehicle: vehicles?.[i]?.driverName || vehicles?.[i]?.id || `V${i + 1}`,
+      stops: r || [],
+      color: COLORS[i % COLORS.length],
+    }))
+    .filter((r) => r.stops.length > 0);
 }
 
 export default function Dashboard() {
@@ -154,7 +198,10 @@ export default function Dashboard() {
       const res = await api.get("/api/optimize/latest");
       const result = res.data.result;
       setRun(result);
-      setSelectedIndex(result.selectedIndex ?? 0);
+      const best = pickBestSolutionIndex(result.solutions || []);
+      setSelectedIndex(
+        result.selectedIndex != null ? result.selectedIndex : best
+      );
     } catch (err) {
       if (err.response?.status === 404) {
         setRun(null);
@@ -172,22 +219,30 @@ export default function Dashboard() {
   }, [loadLatest]);
 
   const solutions = run?.solutions || [];
+  const bestIndex = useMemo(() => pickBestSolutionIndex(solutions), [solutions]);
+  const bestSolution = solutions[bestIndex];
   const selected = solutions[selectedIndex] || solutions[0];
 
   const metrics = useMemo(() => {
     if (!run || !selected) {
       return { totalStops: 0, totalVehicles: 0, fuelCost: 0, fuelSaved: 0, avgTime: 0, timeSaved: 0, paretoSols: 0 };
     }
+    const bestFit = bestSolution?.fitness || selected.fitness || {};
     return {
       totalStops: run.stopsCount || 0,
       totalVehicles: run.vehicles?.length || 0,
-      fuelCost: run.fuelCost || Math.round(selected.fitness?.fuel_cost || 0),
+      fuelCost: Math.round(bestFit.fuel_cost || run.fuelCost || 0),
       fuelSaved: run.fuelSaved || 0,
-      avgTime: run.deliveryTime || Math.round((selected.fitness?.delivery_time || 0) * 60),
+      avgTime: Math.round((bestFit.delivery_time || 0) * 60) || run.deliveryTime || 0,
       timeSaved: run.timeSaved || 0,
       paretoSols: run.paretoCount || solutions.length,
     };
-  }, [run, selected, solutions.length]);
+  }, [run, selected, bestSolution, solutions.length]);
+
+  const bestRoutes = useMemo(
+    () => formatRoutePreview(bestSolution?.route, run?.vehicles),
+    [bestSolution, run]
+  );
 
   const drivers = useMemo(
     () => workloadBars(selected, run?.vehicles),
@@ -269,9 +324,106 @@ export default function Dashboard() {
           ))}
         </div>
 
+        {/* Most optimized (balanced) Pareto solution */}
+        {bestSolution && (
+          <div className="mb-4 rounded-xl border border-[#1a9e75]/30 bg-gradient-to-r from-[#1a9e75]/8 to-white p-4 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[10px] uppercase tracking-wide font-semibold px-2 py-0.5 rounded-full bg-[#1a9e75] text-white">
+                    Most optimized
+                  </span>
+                  <span className="text-sm font-semibold text-[#1e3a5f]">
+                    {bestSolution.label || `Solution ${String.fromCharCode(65 + (bestIndex % 26))}`}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500">
+                  Best balanced trade-off across fuel cost, delivery time, and workload
+                  (among {solutions.length} Pareto solutions).
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleSelect(bestIndex)}
+                className="text-xs px-3 py-1.5 rounded-lg bg-[#1a9e75] text-white hover:bg-[#178f69] shrink-0"
+              >
+                {selectedIndex === bestIndex ? "Viewing this solution" : "Select on map"}
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+              {[
+                {
+                  label: "Fuel cost",
+                  value: `₹${Math.round(bestSolution.fitness?.fuel_cost || 0).toLocaleString()}`,
+                },
+                {
+                  label: "Delivery time",
+                  value: `${Math.round((bestSolution.fitness?.delivery_time || 0) * 60)} min`,
+                },
+                {
+                  label: "Workload imbalance",
+                  value: String(bestSolution.fitness?.workload_balance ?? "—"),
+                },
+                {
+                  label: "Vehicles used",
+                  value: String(
+                    (bestSolution.route || []).filter((r) => r?.length > 0).length
+                  ),
+                },
+              ].map((m) => (
+                <div key={m.label} className="bg-white/80 border border-[#1a9e75]/15 rounded-lg px-3 py-2">
+                  <div className="text-[10px] text-gray-500 uppercase tracking-wide">{m.label}</div>
+                  <div className="text-base font-semibold text-[#1e3a5f]">{m.value}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-[1.2fr_1fr] gap-4">
+              <div>
+                <div className="text-xs font-medium text-gray-500 mb-2">Optimized routes</div>
+                <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                  {bestRoutes.map((r) => (
+                    <div
+                      key={r.vehicle}
+                      className="flex items-start gap-2 text-xs bg-white rounded-lg border border-gray-100 px-3 py-2"
+                    >
+                      <span
+                        className="mt-0.5 w-2 h-2 rounded-full shrink-0"
+                        style={{ background: r.color }}
+                      />
+                      <div className="min-w-0">
+                        <span className="font-medium text-gray-800">{r.vehicle}</span>
+                        <span className="text-gray-400"> · {r.stops.length} stops</span>
+                        <div className="text-gray-500 mt-0.5 break-all font-mono text-[11px]">
+                          Depot → {r.stops.join(" → ")} → Depot
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {!bestRoutes.length && (
+                    <p className="text-xs text-gray-400">No routes in this solution.</p>
+                  )}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs font-medium text-gray-500 mb-2">Best solution map</div>
+                <RouteMap
+                  depot={run?.depot}
+                  deliveries={run?.deliveries}
+                  routes={bestSolution?.route}
+                  vehicles={run?.vehicles}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-[1.6fr_1fr] gap-4 mb-4">
           <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
-            <div className="text-sm font-medium text-gray-500 mb-3">Route map</div>
+            <div className="text-sm font-medium text-gray-500 mb-3">
+              Route map {selectedIndex === bestIndex ? "(most optimized)" : `(solution ${selectedIndex + 1})`}
+            </div>
             <RouteMap
               depot={run?.depot}
               deliveries={run?.deliveries}
@@ -279,46 +431,65 @@ export default function Dashboard() {
               vehicles={run?.vehicles}
             />
           </div>
-          <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
-            <div className="text-sm font-medium text-gray-500 mb-3">
+          <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm flex flex-col max-h-[280px]">
+            <div className="text-sm font-medium text-gray-500 mb-3 shrink-0">
               Select solution {saving ? "(saving…)" : ""}
+              {solutions.length > 0 && (
+                <span className="text-xs font-normal text-gray-400 ml-1">
+                  ({solutions.length})
+                </span>
+              )}
             </div>
             {!solutions.length && (
               <p className="text-xs text-gray-400">No solutions available.</p>
             )}
-            {solutions.slice(0, 8).map((s, i) => {
-              const color = COLORS[i % COLORS.length];
-              const stops = (s.route || []).reduce((a, r) => a + r.length, 0);
-              return (
-                <div
-                  key={s.label || i}
-                  onClick={() => handleSelect(i)}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg border mb-2 cursor-pointer transition"
-                  style={{
-                    border: selectedIndex === i ? `1.5px solid ${color}` : "1px solid #e5e7eb",
-                    background: selectedIndex === i ? `${color}12` : "#fff",
-                  }}
-                >
-                  <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: color }} />
-                  <div className="flex-1">
-                    <div className="font-medium text-gray-800">{s.label || `Solution ${i + 1}`}</div>
-                    <div className="text-xs text-gray-400">
-                      {stops} stops · workload {s.fitness?.workload_balance}
+            <div className="overflow-y-auto pr-1 flex-1 min-h-0">
+              {solutions.map((s, i) => {
+                const color = COLORS[i % COLORS.length];
+                const stops = (s.route || []).reduce((a, r) => a + r.length, 0);
+                const isBest = i === bestIndex;
+                return (
+                  <div
+                    key={s.label || i}
+                    onClick={() => handleSelect(i)}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg border mb-2 cursor-pointer transition last:mb-0"
+                    style={{
+                      border: selectedIndex === i ? `1.5px solid ${color}` : isBest ? "1.5px solid #1a9e75" : "1px solid #e5e7eb",
+                      background: selectedIndex === i ? `${color}12` : isBest ? "#1a9e7510" : "#fff",
+                    }}
+                  >
+                    <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: color }} />
+                    <div className="flex-1">
+                      <div className="font-medium text-gray-800 flex items-center gap-2">
+                        {s.label || `Solution ${i + 1}`}
+                        {isBest && (
+                          <span className="text-[9px] uppercase font-semibold px-1.5 py-0.5 rounded bg-[#1a9e75] text-white">
+                            Best
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        {stops} stops · workload {s.fitness?.workload_balance}
+                      </div>
                     </div>
+                    <span className="text-xs font-semibold" style={{ color }}>
+                      ₹{Math.round(s.fitness?.fuel_cost || 0)}
+                    </span>
                   </div>
-                  <span className="text-xs font-semibold" style={{ color }}>
-                    ₹{Math.round(s.fitness?.fuel_cost || 0)}
-                  </span>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
             <div className="text-sm font-medium text-gray-500 mb-2">Pareto front</div>
-            <ParetoChart solutions={solutions} selectedIndex={selectedIndex} />
+            <ParetoChart solutions={solutions} selectedIndex={selectedIndex} bestIndex={bestIndex} />
+            <div className="flex gap-3 text-[10px] text-gray-400 mt-1">
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#1a9e75]" /> Most optimized</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#185FA5]" /> Selected</span>
+            </div>
           </div>
           <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
             <div className="text-sm font-medium text-gray-500 mb-4">Driver workload</div>

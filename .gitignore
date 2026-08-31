@@ -1,8 +1,9 @@
-node_modules/
-Frontend/node_modules/
-Backend/node_modules/
 MV_Final/.venv/
+MV_Final/.mplconfig/
 **/__pycache__/
 *.pyc
 .env.local
 .DS_Store
+node_modules/
+Frontend/node_modules/
+Backend/node_modules/
