@@ -4,11 +4,24 @@ import random
 from deap import creator
 
 
-def create_individual(deliveries, vehicles):
+def _individual_cls(individual_cls=None):
+    if individual_cls is not None:
+        return individual_cls
+    return creator.Individual
+
+
+def create_individual(deliveries, vehicles, individual_cls=None):
+    """
+    Round-robin shuffle assignment (fast, diverse).
+
+    For large instances, prefer create_individual_capacity_aware when
+    capacity feasibility matters early in the search.
+    """
 
     if not vehicles:
         raise ValueError("Cannot create an individual with zero vehicles")
 
+    cls = _individual_cls(individual_cls)
     customer_ids = [d.id for d in deliveries]
 
     random.shuffle(customer_ids)
@@ -18,16 +31,59 @@ def create_individual(deliveries, vehicles):
     for i, customer in enumerate(customer_ids):
         routes[i % len(vehicles)].append(customer)
 
-    return creator.Individual(routes)
+    return cls(routes)
 
 
-def generate_initial_population(deliveries, vehicles, population_size):
+def create_individual_capacity_aware(deliveries, vehicles, individual_cls=None):
+    """
+    Greedy assignment: place each shuffled customer on a random feasible
+    vehicle (demand fits). Falls back to the least-loaded vehicle if none fit.
+    Improves early capacity feasibility on large fleets.
+    """
+
+    if not vehicles:
+        raise ValueError("Cannot create an individual with zero vehicles")
+
+    cls = _individual_cls(individual_cls)
+    demand = {d.id: d.demand for d in deliveries}
+    customer_ids = [d.id for d in deliveries]
+    random.shuffle(customer_ids)
+
+    routes = [[] for _ in range(len(vehicles))]
+    loads = [0.0] * len(vehicles)
+
+    for customer in customer_ids:
+        dmd = demand[customer]
+        candidates = [
+            i for i, v in enumerate(vehicles)
+            if loads[i] + dmd <= v.capacity
+        ]
+        if candidates:
+            i = random.choice(candidates)
+        else:
+            i = min(range(len(vehicles)), key=lambda j: loads[j] / max(vehicles[j].capacity, 1))
+        routes[i].append(customer)
+        loads[i] += dmd
+
+    return cls(routes)
+
+
+def generate_initial_population(
+    deliveries, vehicles, population_size, individual_cls=None, capacity_aware_ratio=0.7
+):
 
     population = []
 
-    for _ in range(population_size):
+    n_aware = int(population_size * capacity_aware_ratio)
+    for _ in range(n_aware):
         population.append(
-            create_individual(deliveries, vehicles)
+            create_individual_capacity_aware(
+                deliveries, vehicles, individual_cls=individual_cls
+            )
+        )
+    for _ in range(population_size - n_aware):
+        population.append(
+            create_individual(deliveries, vehicles, individual_cls=individual_cls)
         )
 
     return population
@@ -61,8 +117,9 @@ def _order_crossover(route1, route2):
     return child
 
 
-def custom_crossover(parent1, parent2):
+def custom_crossover(parent1, parent2, individual_cls=None):
 
+    cls = _individual_cls(individual_cls)
     child = copy.deepcopy(parent1)
 
     for i in range(len(child)):
@@ -74,26 +131,26 @@ def custom_crossover(parent1, parent2):
             else:
                 child[i] = copy.deepcopy(parent2[i])
 
-    return creator.Individual(child)
+    return cls(child)
 
 
-def custom_mutation(individual):
+def custom_mutation(individual, individual_cls=None):
     """
     Two kinds of mutation:
       1. Re-order mutation: swap two customers within the SAME route.
-         This is what actually improves the visiting order (distance/time),
-         and is essential even with a single vehicle.
       2. Re-assignment mutation: move a customer from one vehicle's route
          to another. Only meaningful with 2+ vehicles.
-    Both are tried so the search doesn't stagnate regardless of fleet size.
+    Also: with small probability, try to empty a lightly-loaded route by
+    moving all its customers onto other routes (helps vehicles-used objective).
     """
 
+    cls = _individual_cls(individual_cls)
     child = copy.deepcopy(individual)
 
     non_empty_routes = [i for i in range(len(child)) if len(child[i]) > 0]
 
     if not non_empty_routes:
-        return creator.Individual(child)
+        return cls(child)
 
     # ---- 1. Re-order mutation (swap within a route) ----
     reorder_candidates = [i for i in non_empty_routes if len(child[i]) >= 2]
@@ -115,16 +172,25 @@ def custom_mutation(individual):
             child[from_vehicle].remove(customer)
             child[to_vehicle].append(customer)
 
-    return creator.Individual(child)
+    # ---- 3. Route-merge mutation (encourage fewer vehicles) ----
+    non_empty_routes = [i for i in range(len(child)) if len(child[i]) > 0]
+    if len(non_empty_routes) >= 2 and random.random() < 0.15:
+        src = min(non_empty_routes, key=lambda i: len(child[i]))
+        dst = random.choice([i for i in non_empty_routes if i != src])
+        child[dst].extend(child[src])
+        child[src] = []
+
+    return cls(child)
 
 
-def repair_solution(individual, deliveries):
+def repair_solution(individual, deliveries, individual_cls=None):
     """
     Ensures every delivery appears in the individual exactly once:
     removes any duplicate customer ids across routes, then appends
     any customer missing from the solution to a random route.
     """
 
+    cls = _individual_cls(individual_cls)
     all_customers = {d.id for d in deliveries}
 
     seen = set()
@@ -146,4 +212,4 @@ def repair_solution(individual, deliveries):
     for customer in missing:
         random.choice(individual).append(customer)
 
-    return creator.Individual(individual)
+    return cls(individual)

@@ -46,7 +46,10 @@ toolbox = base.Toolbox()
 
 
 # -------------------------
-# Run NSGA-II
+# Run NSGA-II  (baseline — 3 objectives)
+# Fuel cost ↓, Delivery time ↓, Workload imbalance ↓
+#
+# For NSGA-III Objective Combination #1 (5 objectives), see nsga3.py
 # -------------------------
 
 def run_nsga2(deliveries, vehicles, depot):

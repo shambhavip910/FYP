@@ -25,38 +25,41 @@ export default function Sidebar() {
   }
 
   return (
-    <div className="w-40 min-h-screen bg-white border border-gray-200 rounded-xl p-3 flex flex-col gap-1 shadow-sm shrink-0">
+    <div className="w-40 h-[calc(100vh-2rem)] sticky top-4 bg-white border border-gray-200 rounded-xl p-3 flex flex-col shadow-sm shrink-0">
       {role && (
-        <div className="px-3 py-2 mb-1 text-[10px] uppercase tracking-wide text-gray-400 font-semibold">
+        <div className="px-3 py-2 mb-1 text-[10px] uppercase tracking-wide text-gray-400 font-semibold shrink-0">
           {role}
         </div>
       )}
 
-      {navItems.map((item) => (
-        <NavLink
-          key={item.path}
-          to={item.path}
-          className={({ isActive }) =>
-            `flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition font-medium
-            ${
-              isActive
-                ? "bg-[#1e3a5f]/10 text-[#1e3a5f]"
-                : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-            }`
-          }
-        >
-          <span>{item.icon}</span>
-          {item.label}
-        </NavLink>
-      ))}
+      <nav className="flex flex-col gap-1 flex-1 min-h-0 overflow-y-auto">
+        {navItems.map((item) => (
+          <NavLink
+            key={item.path}
+            to={item.path}
+            className={({ isActive }) =>
+              `flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition font-medium
+              ${
+                isActive
+                  ? "bg-[#1e3a5f]/10 text-[#1e3a5f]"
+                  : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+              }`
+            }
+          >
+            <span>{item.icon}</span>
+            {item.label}
+          </NavLink>
+        ))}
+      </nav>
 
-      <div className="mt-auto">
-        <div
+      <div className="shrink-0 pt-2 mt-2 border-t border-gray-100">
+        <button
+          type="button"
           onClick={handleLogout}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-500 hover:bg-red-50 hover:text-red-500 cursor-pointer transition font-medium"
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-500 hover:bg-red-50 hover:text-red-500 cursor-pointer transition font-medium"
         >
           <span>🚪</span> Logout
-        </div>
+        </button>
       </div>
     </div>
   );
