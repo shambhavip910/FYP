@@ -7,33 +7,37 @@ def haversine(lat1, lon1, lat2, lon2):
 
     R = 6371
 
-    dlat = radians(lat2-lat1)
-    dlon = radians(lon2-lon1)
+    dlat = radians(lat2 - lat1)
+    dlon = radians(lon2 - lon1)
 
-    a = sin(dlat/2)**2 + \
-        cos(radians(lat1))*cos(radians(lat2))*sin(dlon/2)**2
+    a = sin(dlat / 2) ** 2 + \
+        cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon / 2) ** 2
 
-    c = 2*atan2(sqrt(a), sqrt(1-a))
+    c = 2 * atan2(sqrt(a), sqrt(1 - a))
 
-    return R*c
+    return R * c
 
 
-def calculate_distance(route, deliveries, depot):
+def build_delivery_map(deliveries):
+    """O(1) lookup by customer id — critical for 1,000-customer evaluation."""
+    return {d.id: d for d in deliveries}
+
+
+def calculate_distance(route, deliveries, depot, delivery_map=None):
 
     if not route:
-        return 0
+        return 0.0
 
-    total = 0
+    if delivery_map is None:
+        delivery_map = build_delivery_map(deliveries)
+
+    total = 0.0
 
     current_lat = depot.lat
     current_lng = depot.lng
 
     for customer in route:
-
-        delivery = next(
-            d for d in deliveries
-            if d.id == customer
-        )
+        delivery = delivery_map[customer]
 
         total += haversine(
             current_lat,
@@ -69,7 +73,21 @@ def parse_time_window(window_str):
     return start_h + start_m / 60, end_h + end_m / 60
 
 
-def simulate_route_schedule(route, deliveries, depot, start_time=None):
+def hours_to_hhmm(hours):
+    """Format a float hour value as HH:MM."""
+    h = int(hours) % 24
+    m = int(round((hours - int(hours)) * 60)) % 60
+    return f"{h:02d}:{m:02d}"
+
+
+def simulate_route_schedule(
+    route,
+    deliveries,
+    depot,
+    start_time=None,
+    delivery_map=None,
+    include_service_time=True,
+):
     """
     Walks a single vehicle's route leg by leg starting from the depot,
     tracking real elapsed time against each delivery's time window.
@@ -77,13 +95,10 @@ def simulate_route_schedule(route, deliveries, depot, start_time=None):
     Returns a dict with:
       - driving_time: total hours spent driving
       - waiting_time: total hours spent waiting for a window to open
-      - lateness: total hours arrived past a window's close
-      - late_count: number of deliveries arrived at late
-
-    This is what actually makes delivery_time a genuine second objective
-    instead of being a fixed multiple of distance/fuel: two routes can
-    have the same total distance but very different waiting/lateness
-    depending on the order customers are visited in.
+      - lateness: total hours arrived past a window's close (delay)
+      - late_count: number of deliveries arrived late
+      - on_time_count: number of deliveries arrived on time (arrival <= due)
+      - served_count: number of customers on this route
     """
 
     if start_time is None:
@@ -94,8 +109,13 @@ def simulate_route_schedule(route, deliveries, depot, start_time=None):
             "driving_time": 0.0,
             "waiting_time": 0.0,
             "lateness": 0.0,
-            "late_count": 0
+            "late_count": 0,
+            "on_time_count": 0,
+            "served_count": 0,
         }
+
+    if delivery_map is None:
+        delivery_map = build_delivery_map(deliveries)
 
     current_lat, current_lng = depot.lat, depot.lng
     current_time = start_time
@@ -104,13 +124,10 @@ def simulate_route_schedule(route, deliveries, depot, start_time=None):
     waiting_time = 0.0
     lateness = 0.0
     late_count = 0
+    on_time_count = 0
 
     for customer in route:
-
-        delivery = next(
-            d for d in deliveries
-            if d.id == customer
-        )
+        delivery = delivery_map[customer]
 
         leg_distance = haversine(
             current_lat,
@@ -124,14 +141,27 @@ def simulate_route_schedule(route, deliveries, depot, start_time=None):
         driving_time += leg_time
         current_time += leg_time
 
-        window_start, window_end = parse_time_window(delivery.time_window)
+        # Prefer explicit ready/due when present (NSGA-III dataset);
+        # fall back to parsing time_window (NSGA-II path).
+        if hasattr(delivery, "ready_time") and hasattr(delivery, "due_time"):
+            window_start = delivery.ready_time
+            window_end = delivery.due_time
+        else:
+            window_start, window_end = parse_time_window(delivery.time_window)
 
         if current_time < window_start:
             waiting_time += (window_start - current_time)
             current_time = window_start
-        elif current_time > window_end:
+
+        if current_time > window_end:
             lateness += (current_time - window_end)
             late_count += 1
+        else:
+            on_time_count += 1
+
+        service = getattr(delivery, "service_time", 0.0) or 0.0
+        if include_service_time and service > 0:
+            current_time += service
 
         current_lat, current_lng = delivery.lat, delivery.lng
 
@@ -139,6 +169,7 @@ def simulate_route_schedule(route, deliveries, depot, start_time=None):
         "driving_time": driving_time,
         "waiting_time": waiting_time,
         "lateness": lateness,
-        "late_count": late_count
+        "late_count": late_count,
+        "on_time_count": on_time_count,
+        "served_count": len(route),
     }
-
