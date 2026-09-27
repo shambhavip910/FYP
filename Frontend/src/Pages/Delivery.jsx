@@ -202,7 +202,7 @@ const Delivery = () => {
                     value={form.customerName}
                     onChange={(e) => setForm({ ...form, customerName: e.target.value })}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:ring-2 focus:ring-[#1e3a5f]"
-                    placeholder="Rahul Sharma"
+                    placeholder="Name "
                   />
                 </div>
                 <div>
@@ -212,7 +212,7 @@ const Delivery = () => {
                     value={form.location}
                     onChange={(e) => setForm({ ...form, location: e.target.value })}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:ring-2 focus:ring-[#1e3a5f]"
-                    placeholder="Civil Lines"
+                    placeholder="Place"
                   />
                 </div>
               </div>
@@ -226,7 +226,7 @@ const Delivery = () => {
                     value={form.latitude}
                     onChange={(e) => setForm({ ...form, latitude: e.target.value })}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:ring-2 focus:ring-[#1e3a5f]"
-                    placeholder="25.435"
+                    
                   />
                 </div>
                 <div>
@@ -238,7 +238,7 @@ const Delivery = () => {
                     value={form.longitude}
                     onChange={(e) => setForm({ ...form, longitude: e.target.value })}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:ring-2 focus:ring-[#1e3a5f]"
-                    placeholder="81.846"
+                  
                   />
                 </div>
                 <div>
@@ -249,7 +249,7 @@ const Delivery = () => {
                     value={form.demand}
                     onChange={(e) => setForm({ ...form, demand: e.target.value })}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:ring-2 focus:ring-[#1e3a5f]"
-                    placeholder="3"
+                    placeholder=""
                   />
                 </div>
               </div>
@@ -261,7 +261,7 @@ const Delivery = () => {
                     value={form.timeWindow}
                     onChange={(e) => setForm({ ...form, timeWindow: e.target.value })}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:ring-2 focus:ring-[#1e3a5f]"
-                    placeholder="10:00-14:00"
+               
                   />
                 </div>
                 <div>
@@ -341,7 +341,7 @@ const Delivery = () => {
                   value={vehicleForm.driverName}
                   onChange={(e) => setVehicleForm({ ...vehicleForm, driverName: e.target.value })}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:ring-2 focus:ring-[#1e3a5f]"
-                  placeholder="Ramesh Kumar"
+                  placeholder="Nae"
                 />
               </div>
               <div className="mb-3">
